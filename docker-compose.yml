@@ -1,0 +1,91 @@
+services:
+  # PHP-FPM
+  php-guest-book:
+    build:
+      context: ./docker
+      dockerfile: php.Dockerfile
+    container_name: php-guest-book
+    restart: unless-stopped
+    env_file:
+      - env/.env
+    volumes:
+      - ./src:/var/www/src
+      - ./config/php/php.ini:/usr/local/etc/php/conf.d/local.ini:ro
+    networks:
+      - php-guest-book
+    healthcheck:
+      test: [ "CMD", "cgi-fcgi", "-bind", "-connect", "localhost:9000" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # Веб-сервер Apache
+  httpd-guest-book:
+    image: httpd:2.4-alpine
+    container_name: httpd-guest-book
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./src:/var/www/src
+      - ./config/httpd/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
+    networks:
+      - php-guest-book
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "-O", "-", "http://localhost/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      php-guest-book:
+        condition: service_healthy
+
+  # База данных MySQL
+  mysql-guest-book:
+    image: mysql:8.4
+    container_name: mysql-guest-book
+    restart: unless-stopped
+    env_file:
+      - env/.env
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-guest-book-data:/var/lib/mysql
+    networks:
+      - php-guest-book
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p$$MYSQL_ROOT_PASSWORD" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # phpMyAdmin
+  phpmyadmin-guest-book:
+    image: phpmyadmin
+    container_name: phpmyadmin-guest-book
+    restart: unless-stopped
+    env_file:
+      - env/.env
+    ports:
+      - "8080:80"
+    depends_on:
+      mysql-guest-book:
+        condition: service_healthy
+    networks:
+      - php-guest-book
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "-O", "-", "http://localhost/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mysql-guest-book-data:
+
+networks:
+  php-guest-book:
+    driver: bridge

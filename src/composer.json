@@ -1,0 +1,10 @@
+{
+  "name": "skufphp/guest-book",
+  "description": "Guest Book Application",
+  "type": "project",
+  "require": {
+    "php": ">=8.4",
+    "vlucas/valitron": "^1.4",
+    "ext-pdo": "*"
+  }
+}
